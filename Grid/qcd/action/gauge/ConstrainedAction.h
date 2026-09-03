@@ -82,6 +82,11 @@ public:
     return constrained_value(wrapped_.Sinitial(U));
   }
 
+  RealD unconstrained(const GaugeField &U)
+  {
+    return wrapped_.S(U);
+  }
+
   virtual void deriv(const GaugeField &U, GaugeField &force)
   {
     RealD base_action = wrapped_.S(U);
@@ -140,7 +145,7 @@ private:
   RealD constrained_value(RealD base_action) const
   {
     RealD displacement = base_action - parameters_.S0;
-    return parameters_.a * base_action + displacement * displacement / (2.0 * parameters_.sigma * parameters_.sigma);
+    return (parameters_.a * base_action) + displacement * displacement / (2.0 * parameters_.sigma * parameters_.sigma);
   }
 };
 

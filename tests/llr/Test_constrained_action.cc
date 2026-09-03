@@ -4,7 +4,7 @@
 
     Source file: ./tests/core/Test_ConstrainedAction.cc
 
-    Copyright (C) 2020 - 2022
+    Copyright (C) 2026
 
     Author: Ryan Hill <Ryan.Hill@ed.ac.uk>
 

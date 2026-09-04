@@ -80,10 +80,10 @@ int main(int argc, char **argv)
   // Robbins-Monro updater
   WilsonGaugeActionR bare_action(1.0);
   typedef ConstrainedAction<WilsonGaugeActionR> ConstrainedWilsonGaugeAction;
-  ConstrainedActionParameters action_parameters{.a=1.0, .S0=10, .sigma=2.0};
+  ConstrainedActionParameters action_parameters{.a=1, .S0=1000, .sigma=3.0};
   ConstrainedWilsonGaugeAction constrained_action(bare_action, action_parameters);
   typedef RobbinsMonroSolver<ConstrainedWilsonGaugeAction> Solver;
-  Solver solver(constrained_action, RobbinsMonroParameters(100, 5, 5, 1.0));
+  Solver solver(constrained_action, RobbinsMonroParameters(100, 10, 5, 1.0));
   typedef RobbinsMonroSolverModule<Solver> RmMod;
   TheHMC.Resources.AddObservable<RmMod>(solver);
   //////////////////////////////////////////////
@@ -99,9 +99,9 @@ int main(int argc, char **argv)
   /////////////////////////////////////////////////////////////
 
   // HMC parameters are serialisable
-  TheHMC.Parameters.Trajectories = 205;
-  TheHMC.Parameters.NoMetropolisUntil = 100;
-  TheHMC.Parameters.MD.MDsteps = 20;
+  TheHMC.Parameters.Trajectories = 305;
+  TheHMC.Parameters.NoMetropolisUntil = 0;
+  TheHMC.Parameters.MD.MDsteps = 100;
   TheHMC.Parameters.MD.trajL   = 1.0;
 
   TheHMC.ReadCommandLine(argc, argv); // these can be parameters from file

@@ -2,7 +2,7 @@
 
 Grid physics library, www.github.com/paboyle/Grid
 
-Source file: RobbinsMonroSolverModule.h
+Source file: RobbinsMonroSolver.h
 
 Copyright (C) 2026
 
@@ -136,7 +136,7 @@ private:
   {
     // Accumulation step
     status_.accumulated_action += action_.unconstrained(U);
-    if (status_.trajectories_remaining_in_phase != 0) // Ready to update? If not, return to continue sampling.
+    if (status_.trajectories_remaining_in_phase > 0) // Ready to update? If not, return to continue sampling.
     {
       return;
     }
@@ -148,7 +148,7 @@ private:
     update.mean_action = status_.accumulated_action / parameters_.trajectories_per_update;
     update.residual = update.mean_action - action_.parameters().S0;
     update.previous_a = action_.parameters().a;
-    update.updated_a = update.previous_a - parameters_.gain * update.residual / status_.iteration;
+    update.updated_a = update.previous_a + parameters_.gain * update.residual / (action_.parameters().sigma * action_.parameters().sigma * status_.iteration);
 
     action_.set_a(update.updated_a);
     status_.last_update = update;
@@ -163,7 +163,7 @@ private:
   void thermalise()
   {
     // Only role here is to switch state to 'Accumulating' when # thermalisation steps have passed.
-    if (status_.trajectories_remaining_in_phase == 0)
+    if (status_.trajectories_remaining_in_phase <= 0)
     {
       status_.phase = RobbinsMonroPhase::Accumulating;
       status_.trajectories_remaining_in_phase = parameters_.trajectories_per_update; 

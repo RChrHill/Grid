@@ -158,7 +158,8 @@ int main(int argc, char **argv)
 
   GridSerialRNG serial_rng;
   serial_rng.SeedFixedIntegers({5, 6, 7, 8});
-  constrained.refresh(U, serial_rng, parallel_rng);
+  constrained.refresh(U, serial_rng, parallel_rng); // no-op for pure gauge action
+  assert_action_and_force(wrapped, constrained, U, parameters);
 
   Grid_finalize();
   return 0;

@@ -82,7 +82,7 @@ public:
     return constrained_value(wrapped_.Sinitial(U));
   }
 
-  RealD unconstrained(const GaugeField &U)
+  RealD Sunconstrained(const GaugeField &U)
   {
     return wrapped_.S(U);
   }
@@ -133,9 +133,7 @@ public:
 
   void set_sigma(RealD sigma)
   {
-    ConstrainedActionParameters updated = parameters_;
-    updated.sigma = sigma;
-    parameters_ = updated;
+    parameters_.sigma = sigma;
   }
 
 private:

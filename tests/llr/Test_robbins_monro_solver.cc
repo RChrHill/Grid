@@ -79,8 +79,10 @@ int main(int argc, char **argv)
   
   // Robbins-Monro updater
   WilsonGaugeActionR bare_action(1.0);
+  RealD S0    = 1000;
+  RealD sigma = 3.0;
   typedef ConstrainedAction<WilsonGaugeActionR> ConstrainedWilsonGaugeAction;
-  ConstrainedActionParameters action_parameters{.a=1, .S0=1000, .sigma=3.0};
+  ConstrainedActionParameters action_parameters{.a=1, .S0=S0, .sigma=sigma};
   ConstrainedWilsonGaugeAction constrained_action(bare_action, action_parameters);
   typedef RobbinsMonroSolver<ConstrainedWilsonGaugeAction> Solver;
   Solver solver(constrained_action, RobbinsMonroParameters(100, 10, 5, 1.0));
@@ -106,6 +108,9 @@ int main(int argc, char **argv)
 
   TheHMC.ReadCommandLine(argc, argv); // these can be parameters from file
   TheHMC.Run();  // no smearing
+
+  assert(std::abs(constrained_action.parameters().S0 - S0) < 2 * sigma);
+  assert(std::abs(constrained_action.parameters().a - 4.55) < 0.2);
 
   Grid_finalize();
 

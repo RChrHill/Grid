@@ -135,7 +135,7 @@ private:
   void accumulate(int trajectory, Field &U)
   {
     // Accumulation step
-    status_.accumulated_action += action_.unconstrained(U);
+    status_.accumulated_action += action_.Sunconstrained(U);
     if (status_.trajectories_remaining_in_phase > 0) // Ready to update? If not, return to continue sampling.
     {
       return;

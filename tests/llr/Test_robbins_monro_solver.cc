@@ -79,10 +79,11 @@ int main(int argc, char **argv)
   
   // Robbins-Monro updater
   WilsonGaugeActionR bare_action(1.0);
+  RealD alpha = 1;
   RealD S0    = 1000;
   RealD sigma = 3.0;
   typedef ConstrainedAction<WilsonGaugeActionR> ConstrainedWilsonGaugeAction;
-  ConstrainedActionParameters action_parameters{.a=1, .S0=S0, .sigma=sigma};
+  ConstrainedActionParameters action_parameters{.a=alpha, .S0=S0, .sigma=sigma};
   ConstrainedWilsonGaugeAction constrained_action(bare_action, action_parameters);
   typedef RobbinsMonroSolver<ConstrainedWilsonGaugeAction> Solver;
   Solver solver(constrained_action, RobbinsMonroParameters(100, 10, 5, 1.0));
@@ -109,8 +110,20 @@ int main(int argc, char **argv)
   TheHMC.ReadCommandLine(argc, argv); // these can be parameters from file
   TheHMC.Run();  // no smearing
 
+  // test final values
+  RealD a_expected = alpha;
+  std::string gaugeGroup = "SU(3)";
+  if (Sp2n_config) {
+    a_expected = 9;
+    gaugeGroup = "Sp(4)";
+  }
+  else {
+    a_expected = 4.55;
+  }
+
+  std::cout << GridLogMessage << "Comparing with expected values for " << gaugeGroup << ": S0 = " << S0 << ", a = " << a_expected << std::endl;
   assert(std::abs(constrained_action.parameters().S0 - S0) < 2 * sigma);
-  assert(std::abs(constrained_action.parameters().a - 4.55) < 0.2);
+  assert(std::abs(constrained_action.parameters().a - a_expected) < 0.2);
 
   Grid_finalize();
 

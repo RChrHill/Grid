@@ -120,18 +120,21 @@ int main(int argc, char **argv)
   constrained.set_a(parameters.a);
   std::cout << GridLogMessage << "  Expected a: " << parameters.a << std::endl;
   std::cout << GridLogMessage << "  Actual a:   " << constrained.parameters().a << std::endl;
+  assert(constrained.parameters().a == parameters.a);
   assert_action_and_force(wrapped, constrained, U, parameters);
 
   parameters.S0 -= 0.4;
   constrained.set_S0(parameters.S0);
   std::cout << GridLogMessage << "  Expected S0: " << parameters.S0 << std::endl;
   std::cout << GridLogMessage << "  Actual S0:   " << constrained.parameters().S0 << std::endl;
+  assert(constrained.parameters().S0 == parameters.S0);
   assert_action_and_force(wrapped, constrained, U, parameters);
 
   parameters.sigma = 1.75;
   constrained.set_sigma(parameters.sigma);
   std::cout << GridLogMessage << "  Expected Sigma: " << parameters.sigma << std::endl;
   std::cout << GridLogMessage << "  Actual Sigma:   " << constrained.parameters().sigma << std::endl;
+  assert(constrained.parameters().sigma == parameters.sigma);
   assert_action_and_force(wrapped, constrained, U, parameters);
 
   std::cout << GridLogMessage << "--- Test set all parameters ---" << std::endl;

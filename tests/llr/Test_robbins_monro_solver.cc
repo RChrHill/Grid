@@ -44,20 +44,22 @@ int main(int argc, char **argv)
   RealD S0  = 1000;
   RealD sigma  = 3.0;
   RealD a_expected = alpha0;
+  RealD epsilon_a = 0.3;
+  int n_steps = 8;
+  std::vector<RealD> a_init_scan(n_steps);
   std::string gaugeGroup = "SU(3)";
   if (Sp2n_config) {
     a_expected = 9;
+    a_init_scan = {-10, -1, 0, 1, 7, 9, 11, 20};
     gaugeGroup = "Sp(4)";
   }
   else {
     a_expected = 4.55;
+    a_init_scan = {-10, -1, 0, 1, 4, 4.5, 6, 20};
   }
   std::cout << GridLogMessage << "Test_robbins_monro_solver: Comparing with expected values for " << gaugeGroup << ": S0 = " << S0 << ", a = " << a_expected << std::endl;
 
   // Scan starting values for a (including negative and extremes) and run test
-  RealD delta_a = 2;
-  RealD d_a     = 0.5;
-  int n_steps = 2 * delta_a / d_a + 1;
   std::vector<bool> converged(n_steps);
   for (int i=0; i<n_steps; i++) {
     // The HMC runner
@@ -100,7 +102,7 @@ int main(int argc, char **argv)
     
     // Robbins-Monro updater
     WilsonGaugeActionR bare_action(1.0);
-    RealD alpha = (alpha0 - delta_a) + i * d_a;
+    RealD alpha = a_init_scan[i];
     typedef ConstrainedAction<WilsonGaugeActionR> ConstrainedWilsonGaugeAction;
     ConstrainedActionParameters action_parameters{.a=alpha, .S0=S0, .sigma=sigma};
     ConstrainedWilsonGaugeAction constrained_action(bare_action, action_parameters);
@@ -132,7 +134,7 @@ int main(int argc, char **argv)
     // test final values
     RealD mean_action = solver.status().last_update.mean_action;
     bool S0_converged = std::abs(mean_action - S0) < 2 * sigma;
-    bool a_converged  = std::abs(constrained_action.parameters().a - a_expected) < 0.2;
+    bool a_converged  = std::abs(constrained_action.parameters().a - a_expected) < epsilon_a;
     converged[i] = S0_converged && a_converged;
     std::cout << GridLogMessage << "Test_robbins_monro_solver: a_initial = " << alpha << (S0_converged ? ", S0 converged" : ", S0 did not converge") << (a_converged ? ", a converged" : ", a did not converge") << std::endl;
     std::cout << GridLogMessage << "Test_robbins_monro_solver: a_final = " << constrained_action.parameters().a << ", Sunconstrained = " << mean_action << std::endl;

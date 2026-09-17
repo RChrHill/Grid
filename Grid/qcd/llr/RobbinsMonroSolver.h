@@ -33,26 +33,49 @@ directory
 
 #include <Grid/qcd/action/gauge/ConstrainedAction.h>
 
+/*! \file
+ *
+ */
+/// \cond DO_NOT_DOCUMENT
 NAMESPACE_BEGIN(Grid);
+/// \endcond
 
 enum class RobbinsMonroPhase
+/*! @brief The Robbins-Monro solver phase.
+ *
+ * It can either be Thermalising or Accumulating. When/How long the solver
+ * stays in each phase is controlled by the RobbinsMonroParameters structure.
+ */
 {
   Thermalising,
   Accumulating
 };
 
 struct RobbinsMonroParameters
+/*! @brief The parameters controlling the Robbins-Monro solver.
+ *
+ * Those include, among others, the number of trajectories in each phase.
+ */
 {
-  int initial_thermalisation_trajectories;
-  int rethermalisation_trajectories;
-  int trajectories_per_update;
-  RealD gain;
+  int initial_thermalisation_trajectories; ///< @brief The number of trajectories to use for initial thermalisation
+  int rethermalisation_trajectories; ///< @brief The number of trajectories to use for rethermalisation, after the accumulation phase
+  int trajectories_per_update; ///< @brief The number of trajectories to accumulate per update
+  RealD gain; ///< @brief The gain used to calculate the new \f$a\f$ in every update
 
-  RobbinsMonroParameters(int initial_thermalisation_trajectories = 0,
+  /*! @brief Construct a RobbinsMonroParameters structure.
+   * @param[in] initial_thermalisation_trajectories_: the number of trajectories
+   *            to use for initial thermalisation
+   * @param[in] rethermalisation_trajectories_: the number of trajectories
+   *            to use for rethermalisation, after the accumulation phase
+   * @param[in] trajectories_per_update_: the number of trajectories to accumulate
+   *            per update
+   * @param[in] gain_: the gain used to calculate the new \f$a\f$ in every update
+   */
+  RobbinsMonroParameters(int initial_thermalisation_trajectories_ = 0,
                          int rethermalisation_trajectories_ = 0,
                          int trajectories_per_update_ = 1,
                          RealD gain_ = 1.0)
-      : initial_thermalisation_trajectories(initial_thermalisation_trajectories),
+      : initial_thermalisation_trajectories(initial_thermalisation_trajectories_),
         rethermalisation_trajectories(rethermalisation_trajectories_),
         trajectories_per_update(trajectories_per_update_),
         gain(gain_)
@@ -60,30 +83,47 @@ struct RobbinsMonroParameters
 };
 
 struct RobbinsMonroUpdate
+/*! @brief Structure holding useful information every time \f$a\f$ is updated
+ * by the Robbins-Monro solver.
+ */
 {
-  int trajectory;
-  int iteration;
-  RealD mean_action;
-  RealD residual;
-  RealD previous_a;
-  RealD updated_a;
+  int trajectory; ///< @brief The current trajectory at update time
+  int iteration; ///< @brief The current iteration at update time
+  RealD mean_action; ///< @brief The mean unconstrained action per trajectory in this update
+  RealD residual; ///< @brief The difference between mean_action and S0
+  RealD previous_a; ///< @brief The \f$a\f$ parameter of the previous update
+  RealD updated_a; ///< @brief The \f$a\f$ parameter of the current update
 };
 
 struct RobbinsMonroStatus
+/*! @brief Structure holding the Robbins-Monro solver status.
+ *
+ * Needed for replica-swapping.
+ */
 {
-  RobbinsMonroPhase phase;
-  int iteration;
-  int trajectories_remaining_in_phase;
-  RealD accumulated_action;
-  RobbinsMonroUpdate last_update;
+  RobbinsMonroPhase phase; ///< @brief The current phase of the solver (Thermalising or Accumulating)
+  int iteration; ///< @brief The current iteration
+  int trajectories_remaining_in_phase; ///< @brief The number of trajectories remaining in the current phase
+  RealD accumulated_action; ///< @brief The unconstrained action accumulated so far in this update interval
+  RobbinsMonroUpdate last_update; ///< @brief The last \f$a\f$ update information structure
 };
 
 template <class ConstrainedActionType>
-class RobbinsMonroSolver {
+class RobbinsMonroSolver
+/*! @brief The Robbins-Monro solver.
+ *
+ * Expects a single template parameter for the constrained action.
+ * @param ConstrainedActionType: The constrained action type.
+ */
+{
 public:
   typedef ConstrainedActionType ActionType;
   typedef typename ActionType::GaugeField Field;
-
+  
+  /*! @brief Construct a Robbins-Monro solver.
+   * @param[in] action: the constrained action
+   * @param[in] parameters: the RobbinsMonroParameters parameter structure
+   */
   RobbinsMonroSolver(ActionType &action, RobbinsMonroParameters parameters)
       : action_(action)
       , parameters_(parameters)
@@ -101,6 +141,11 @@ public:
     }
   }
 
+  /*! @brief Call the appropriate phase of the Robbins-Monro solver based on
+   * the current status.
+   * @param[in] trajectory: the current trajectory number
+   * @param[in] U: the gauge field
+   */
   void record_configuration(int trajectory, Field &U)
   {
     status_.trajectories_remaining_in_phase--;
@@ -116,6 +161,10 @@ public:
     }
   }
 
+  /*! @brief Call record_configuration for the current trajectory and field configuration.
+   * @param[in] trajectory: the current trajectory number
+   * @param[in] configuration: the gauge field configuration
+   */
   void record_configuration(int trajectory, ConfigurationBase<Field> &configuration)
   {
     Field &U = configuration.get_U(action_.is_smeared);
@@ -123,18 +172,32 @@ public:
   }
 
   // Accessors for replica-swapping
+  /*! @brief Getter for the Robbins-Monro solver parameters.
+   * @returns The solver parameters RobbinsMonroParameters structure
+   */
   const RobbinsMonroParameters &parameters() const { return parameters_; }
+  /*! @brief Restore the Robbins-Monro solver state.
+   * @param[in] state: the RobbinsMonroStatus status structure
+   */
   void restore_state(const RobbinsMonroStatus &state) { status_ = state; }
+  /*! @brief Getter for the Robbins-Monro solver status object.
+   * @returns The solver RobbinsMonroStatus status structure
+   */  
   RobbinsMonroStatus status() const { return status_; }
+  
 public:
-  ActionType &action_;
+  ActionType &action_; ///< @brief The constrained action
 private:
-  RobbinsMonroParameters parameters_;
-  RobbinsMonroStatus status_;
+  RobbinsMonroParameters parameters_; ///< @brief The solver parameters structure
+  RobbinsMonroStatus status_; ///< @brief The solver status structure
 
+  /*! @brief Call the accumulate phase of the Robbins-Monro solver for
+   * the current trajectory.
+   * @param[in] trajectory: the current trajectory number
+   * @param[in] U: the gauge field
+   */
   void accumulate(int trajectory, Field &U)
   {
-    // Accumulation step
     status_.accumulated_action += action_.Sunconstrained(U);
     if (status_.trajectories_remaining_in_phase > 0) // Ready to update? If not, return to continue sampling.
     {
@@ -160,9 +223,13 @@ private:
     status_.trajectories_remaining_in_phase = parameters_.rethermalisation_trajectories; 
   }
 
+  /*! @brief Call the thermalise phase of the Robbins-Monro solver.
+   * 
+   * Only role here is to switch state to 'Accumulating' when
+   * the number of thermalisation steps have passed.
+   */
   void thermalise()
   {
-    // Only role here is to switch state to 'Accumulating' when # thermalisation steps have passed.
     if (status_.trajectories_remaining_in_phase <= 0)
     {
       status_.phase = RobbinsMonroPhase::Accumulating;
@@ -171,5 +238,7 @@ private:
   }
 };
 
+/// \cond DO_NOT_DOCUMENT
 NAMESPACE_END(Grid);
+/// \endcond
 

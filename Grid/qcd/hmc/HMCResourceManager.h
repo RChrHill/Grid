@@ -55,7 +55,7 @@ class HMCResourceManager {
   
   // A vector of HmcObservable modules
   std::vector<std::unique_ptr<ObservableBaseModule> > ObservablesList;
-
+  std::map<std::string, int> ObservablesNameMap;
 
   // A vector of HmcObservable modules
   std::multimap<int, std::unique_ptr<ActionBaseModule> > ActionsList;
@@ -332,7 +332,18 @@ public:
     return out;
   }
 
+  // Add entry to the observable names map for the last index of the observables list.
+  // This function is intended to be called immediately after AddObservable is called.
+  void AddObservableName(std::string name){
+    assert(ObservablesList.size()>0 && "ObservablesList is empty. Call AddObservable(...) first.");
+    ObservablesNameMap[name] = ObservablesList.size()-1;
+  }
 
+  // Return index in the ObservablesList of the observable with name
+  int GetObservableIndex(std::string name){
+    assert(ObservablesNameMap.find(name)!=ObservablesNameMap.end() && ("Observables name list does not contain "+name+". Call AddObservableName(...) with the desired name after the appropriate AddObservable(...) call.").c_str());
+    return ObservablesNameMap[name];
+  }
 
 private:
   // this private

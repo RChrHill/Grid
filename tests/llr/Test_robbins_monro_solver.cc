@@ -10,6 +10,7 @@ Author: Peter Boyle <pabobyle@ph.ed.ac.uk>
 Author: neo <cossu@post.kek.jp>
 Author: Guido Cossu <guido.cossu@ed.ac.uk>
 Author: Ryan Hill <guido.cossu@ed.ac.uk>
+Author: Ilektra Christidi <ilektra.christidi@ucl.ac.uk>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -30,87 +31,65 @@ directory
 *************************************************************************************/
 /*  END LEGAL */
 #include <Grid/Grid.h>
-#include <Grid/qcd/llr/RobbinsMonroSolverModule.h>
+#include <Grid/qcd/llr/LLRSolverModule.h>
+#include "run_llr_test.cc"
+
+// TODO: unit tests for edge cases of number of trajectories in various phases (eg. rethrm=0, therm=0, correct phase at end?)
 
 int main(int argc, char **argv) 
 {
   using namespace Grid;
 
-  Grid_init(&argc, &argv);
+  // Ignore command line arguments and enforce --grid 4.4.4.4
+  int updatedArgc = 3;
+  char** updatedArgv = (char**)malloc(sizeof(char*) * 4);
+  updatedArgv[0] = argv[0];
+  updatedArgv[1] = (char*)(new std::string("--grid"))->c_str();
+  updatedArgv[2] = (char*)(new std::string("4.4.4.4"))->c_str();
+  updatedArgv[3] = nullptr;
+  Grid_init(&updatedArgc, &updatedArgv);
   GridLogLayout();
 
-   // Typedefs to simplify notation
-  typedef GenericHMCRunner<MinimumNorm2> HMCWrapper;  // Uses the default minimum norm
-  HMCWrapper TheHMC;
+  // Starting and expected final values for constrained action and solver parameters
+  RealD a0, S0, a_expected, sigma  = 3.0;
+  int n_thermalisation = 100, n_rethermalisation = 10, n_accumulation = 5, n_iter = 14;
+  int n_traj = n_thermalisation + n_accumulation + (n_iter -1) * (n_accumulation + n_rethermalisation); // 300 for default values
+  RealD epsilon_a = 0.3;
+  int n_steps = 2;
+  std::vector<RealD> a0_scan(n_steps);
+  std::vector<RealD> a_expect_scan(n_steps);
+  std::vector<RealD> S0_scan(n_steps);
+  S0_scan = {768, 870};
+  std::string gaugeGroup = "SU(3)";
+  if (Sp2n_config) {
+    a0_scan = {-10, 30};
+    a_expect_scan = {11, 12};
+    gaugeGroup = "Sp(4)";
+  }
+  else {
+    a0_scan = {-10, 20};
+    a_expect_scan = {5.5, 5.7};
+  }
 
-  // Grid from the command line
-  TheHMC.Resources.AddFourDimGrid("gauge");
+  // Scan starting values for a (including negative and extremes) and S0 and run test
+  std::vector<bool> converged(n_steps*n_steps);
+  for (int i=0; i<n_steps; i++) {
+    S0 = S0_scan[i];
+    a_expected = a_expect_scan[i];
+    std::cout << GridLogMessage << "Test_robbins_monro_solver: Comparing with expected values for " <<
+      gaugeGroup << ": S0 = " << S0 << ", a = " << a_expected << std::endl;
+    
+    for (int j=0; j<n_steps; j++) {
+      a0 = a0_scan[j];
 
-  // Checkpointer definition
-  CheckpointerParameters CPparams;  
-  CPparams.config_prefix = "ckpoint_lat";
-  CPparams.rng_prefix = "ckpoint_rng";
-  CPparams.saveInterval = 65535;
-  CPparams.format = "IEEE64BIG";
+      typedef LLRSolver<ConstrainedWilsonGaugeAction, &RobbinsMonro> Solver;
+      ConstrainedActionParameters action_parameters{.a=a0, .S0=S0, .sigma=sigma};
+      LLRSolverParameters solver_parameters(n_thermalisation, n_rethermalisation, n_accumulation, 1.0);
+      converged[i*n_steps+j] = run_test<Solver>(action_parameters, solver_parameters, "robbins_monro", n_traj, a_expected, epsilon_a);
+    }
+  }
   
-  TheHMC.Resources.LoadNerscCheckpointer(CPparams);
-
-  RNGModuleParameters RNGpar;
-  RNGpar.serial_seeds = "1 2 3 4 5";
-  RNGpar.parallel_seeds = "6 7 8 9 10";
-  TheHMC.Resources.SetRNGSeeds(RNGpar);
-
-  // Construct observables
-  // here there is too much indirection 
-  typedef PlaquetteMod<HMCWrapper::ImplPolicy> PlaqObs;
-  TheHMC.Resources.AddObservable<PlaqObs>();
-  
-  typedef TopologicalChargeMod<HMCWrapper::ImplPolicy> QObs;
-  TopologyObsParameters TopParams;
-  TopParams.interval = 1;
-  TopParams.do_smearing = false;
-  TopParams.Smearing.init_step_size = 0.01;
-  TopParams.Smearing.tolerance = 1e-5;
-  //  TopParams.Smearing.steps = 200;
-  //  TopParams.Smearing.step_size = 0.01;
-  TopParams.Smearing.meas_interval = 50;
-  TopParams.Smearing.maxTau = 2.0; 
-  TheHMC.Resources.AddObservable<QObs>(TopParams);
-  
-  // Robbins-Monro updater
-  WilsonGaugeActionR bare_action(1.0);
-  RealD S0    = 1000;
-  RealD sigma = 3.0;
-  typedef ConstrainedAction<WilsonGaugeActionR> ConstrainedWilsonGaugeAction;
-  ConstrainedActionParameters action_parameters{.a=1, .S0=S0, .sigma=sigma};
-  ConstrainedWilsonGaugeAction constrained_action(bare_action, action_parameters);
-  typedef RobbinsMonroSolver<ConstrainedWilsonGaugeAction> Solver;
-  Solver solver(constrained_action, RobbinsMonroParameters(100, 10, 5, 1.0));
-  typedef RobbinsMonroSolverModule<Solver> RmMod;
-  TheHMC.Resources.AddObservable<RmMod>(solver);
-  //////////////////////////////////////////////
-
-  /////////////////////////////////////////////////////////////
-  // Collect actions, here use more encapsulation
-  // need wrappers of the fermionic classes 
-  // that have a complex construction
-  // standard
-  ActionLevel<HMCWrapper::Field> Level1(1);
-  Level1.push_back(&constrained_action);
-  TheHMC.TheAction.push_back(Level1);
-  /////////////////////////////////////////////////////////////
-
-  // HMC parameters are serialisable
-  TheHMC.Parameters.Trajectories = 305;
-  TheHMC.Parameters.NoMetropolisUntil = 0;
-  TheHMC.Parameters.MD.MDsteps = 100;
-  TheHMC.Parameters.MD.trajL   = 1.0;
-
-  TheHMC.ReadCommandLine(argc, argv); // these can be parameters from file
-  TheHMC.Run();  // no smearing
-
-  assert(std::abs(constrained_action.parameters().S0 - S0) < 2 * sigma);
-  assert(std::abs(constrained_action.parameters().a - 4.55) < 0.2);
+  assert(std::all_of(converged.begin(), converged.end(), [](bool v) { return v; }));
 
   Grid_finalize();
 

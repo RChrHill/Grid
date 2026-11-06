@@ -2,11 +2,12 @@
 
 Grid physics library, www.github.com/paboyle/Grid
 
-Source file: RobbinsMonroSolverModule.h
+Source file: LLRSolverModule.h
 
 Copyright (C) 2026
 
 Author: Ryan Hill <Ryan.Hill@ed.ac.uk>
+Author: Ilektra Christidi <ilektra.christidi@ucl.ac.uk>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -30,38 +31,29 @@ directory
 #pragma once
 #include <string>
 
-#include <Grid/qcd/llr/RobbinsMonroSolver.h>
+#include <Grid/qcd/llr/LLRSolver.h>
 #include <Grid/qcd/observables/hmc_observable.h>
-#include <Grid/qcd/modules/Modules.h>
+#include <Grid/qcd/modules/ObservableModules.h>
 
 NAMESPACE_BEGIN(Grid);
 
-inline void LogRobbinsMonroUpdate(const RobbinsMonroUpdate &update,
-                                  const std::string &context)
+inline void LogLLRSolverUpdate(const LLRSolverUpdate &update,
+			       const std::string &context)
 {
-  std::cout << GridLogMessage << "[RobbinsMonro" << context << "] trajectory: " << update.trajectory
+  std::cout << GridLogMessage << "[LLRSolver" << context << "] trajectory: " << update.trajectory
             << ", iteration: " << update.iteration
             << ", mean action: " << update.mean_action
             << ", residual: " << update.residual
             << ", a: " << update.previous_a << " -> " << update.updated_a << std::endl;
 }
 
+template <class LLRSolver>
+class LLRActionLogger : public HmcObservable<typename LLRSolver::Field> {
 
-template <class RMSolver>
-class RobbinsMonroSolverModule
-    : public HMCModuleBase<HmcObservable<typename RMSolver::Field> >,
-      public HmcObservable<typename RMSolver::Field> {
 public:
-  typedef typename RMSolver::Field Field;
-  typedef HMCModuleBase<HmcObservable<Field> > Base;
-  typedef typename Base::Product Product;
-
-  explicit RobbinsMonroSolverModule(RMSolver &solver) : solver_(solver) {}
-
-  virtual Product *getPtr()
-  {
-    return this;
-  }
+  typedef typename LLRSolver::Field Field;
+  
+  LLRActionLogger(LLRSolver &solver) : solver_(solver) {}
 
   virtual void TrajectoryComplete(int trajectory, Field &U,
                                   GridSerialRNG &, GridParallelRNG &)
@@ -81,21 +73,58 @@ public:
     report_update(previous_iteration);
   }
 
+  std::vector<std::pair<int, RealD> > getMeanActionVector()
+  {
+    std::vector<std::pair<int, RealD> > out;
+    out = mean_action_;
+    return out;
+  }
+
+  std::vector<std::pair<int, RealD> > getAVector()
+  {
+    std::vector<std::pair<int, RealD> > out;
+    out = a_;
+    return out;
+  }
+
+
 private:
-  RMSolver &solver_;
+  LLRSolver &solver_;
+  std::vector<std::pair<int, RealD> > mean_action_;
+  std::vector<std::pair<int, RealD> > a_;
 
   void report_update(int previous_iteration)
   {
-    RobbinsMonroStatus status = solver_.status();
+    LLRSolverStatus status = solver_.status();
     if (status.iteration == previous_iteration)
     {
       return;
     }
 
-    LogRobbinsMonroUpdate(status.last_update, "");
+    LogLLRSolverUpdate(status.last_update, "");
+    mean_action_.push_back(std::pair<int, RealD>(status.last_update.trajectory, status.last_update.mean_action));
+    a_.push_back(std::pair<int, RealD>(status.last_update.trajectory, status.last_update.previous_a));
     std::cout << GridLogMessage << "[Action Parameters]" << std::endl;
     std::cout << solver_.action_.LogParameters();
   }
+};
+
+
+
+template <class LLRSolver>
+class LLRSolverModule
+  : public ObservableModule<LLRActionLogger<LLRSolver>, NoParameters> {
+public:
+  typedef typename LLRSolver::Field Field;
+
+  typedef ObservableModule<LLRActionLogger<LLRSolver>, NoParameters> ObsBase;
+  using ObsBase::ObsBase;
+
+  LLRSolverModule(LLRSolver &solver): ObsBase(NoParameters()) {
+    this->ObservablePtr.reset(new LLRActionLogger<LLRSolver>(solver));
+  }
+  
+  virtual void initialize(){}
 };
 
 NAMESPACE_END(Grid);

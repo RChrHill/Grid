@@ -48,6 +48,12 @@ struct ConstrainedActionParameters
   RealD a;     // LLR parameter - tuned to d ln[rho(S)] / dS at S0
   RealD S0;    // Constraint centre
   RealD sigma; // Gaussian width
+
+  RealD constrain(RealD bare_action) const
+  {
+    RealD displacement = bare_action - S0;
+    return a * bare_action + displacement * displacement / (2.0 * sigma * sigma);
+  }
 };
 
 template <class WrappedAction>
@@ -74,12 +80,12 @@ public:
 
   virtual RealD S(const GaugeField &U)
   {
-    return constrained_value(wrapped_.S(U));
+    return parameters_.constrain(wrapped_.S(U));
   }
 
   virtual RealD Sinitial(const GaugeField &U)
   {
-    return constrained_value(wrapped_.Sinitial(U));
+    return parameters_.constrain(wrapped_.Sinitial(U));
   }
 
   RealD Sunconstrained(const GaugeField &U)
@@ -139,12 +145,6 @@ public:
 private:
   WrappedAction &wrapped_;
   ConstrainedActionParameters parameters_;
-
-  RealD constrained_value(RealD base_action) const
-  {
-    RealD displacement = base_action - parameters_.S0;
-    return (parameters_.a * base_action) + displacement * displacement / (2.0 * parameters_.sigma * parameters_.sigma);
-  }
 };
 
 NAMESPACE_END(Grid);
